@@ -4,6 +4,33 @@ import { PublicKey } from '@solana/web3.js';
 import { Ognils } from "../target/types/ognils";
 import { assert, expect } from "chai";
 
+
+
+/*
+
+    for every player `init_user_pda` must be called before starting the game 
+    to initialize all the player PDAs inside the queue (mmq) for the current match
+
+    `init_match_pda` needs to be called by the server or a higher authority
+    to initialize the match PDA account and initialize its first data on chain.
+
+    `deposit` and `withdraw` both can be called by the user to deposit into 
+    the match PDA and withdraw from the user PDA account.
+
+    `start_game` will be called by the server after initializing the PDAs 
+    to generate the game logic on chain thus all player public keys inside 
+    the queue (mmq) must be passed into this call. 
+
+    `finish_game` must be called by the server after the game has finished 
+    to pay the winners, thus it requires all the player PDAs to be passed 
+    in to the call, also there must be 6 PDAs inside the call since maximum
+    players inside the queue are 6 thus not all of them can be Some, it must 
+    be checked for its Some part before paying the winner.  
+
+*/
+
+
+
 describe("ognils", () => {
 
   // TODO - use a real provider or connection like testnet or devnet

@@ -19,13 +19,13 @@ sudo chmod +x deploy.sh && ./deploy.sh
 * Generate a new keypair using ```solana-keygen new``` command, the following sample output is important for us! We'll use this public key as the program authority to deploy the program with it. 
 
 ```console
-Wrote new keypair to /home/$USER/.config/solana/id.json
-================================================================================
-pubkey: 8SzHrPVkDf5xhmjyUJ7W8vDaxhTiGF9XBT9XX2PtiwYF
-================================================================================
+Wrote new keypair to /Users/wildonion/.config/solana/id.json
+============================================================================
+pubkey: DaWYunpuRDQfuaJXvmQssQYvqfkshx6P6dihRCzSLCcr
+============================================================================
 Save this seed phrase and your BIP39 passphrase to recover your new keypair:
-skill divorce afraid nice surface poverty host bright narrow media disorder tuna
-================================================================================
+conduct embark six chaos olympic harvest youth garbage tower jazz slow taste
+============================================================================
 
 ```
 
@@ -148,7 +148,3 @@ skill divorce afraid nice surface poverty host bright narrow media disorder tuna
 * the steps to build and deploy the whitelist contract is the same as the ticket contract, simply run ```anchor build --program-name whitelist``` and then ```anchor build --program-name whitelist```. 
 
 * ```solana balance``` shows the balance of the address inside the `/home/$USER/.config/solana/id.json` on the selected network which is one of the `devnet`, `testnet` or `localhost`.
-
-## 🚧 WIPs
-
-* solana ticket reservation contract 

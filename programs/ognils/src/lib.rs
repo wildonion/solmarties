@@ -4,7 +4,7 @@
 /*
 
     for every player `init_user_pda` must be called before starting the game 
-    to initialize all the player PDAs inside the queue for the current matc
+    to initialize all the player PDAs inside the queue (mmq) for the current match
 
     `init_match_pda` needs to be called by the server or a higher authority
     to initialize the match PDA account and initialize its first data on chain.
@@ -14,7 +14,7 @@
 
     `start_game` will be called by the server after initializing the PDAs 
     to generate the game logic on chain thus all player public keys inside 
-    the queue must be passed into this call. 
+    the queue (mmq) must be passed into this call. 
 
     `finish_game` must be called by the server after the game has finished 
     to pay the winners, thus it requires all the player PDAs to be passed 
@@ -33,48 +33,191 @@ declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 
 
 
+pub const VALUE_JOKER: i32 = -1;
 
 pub fn generate_cell_values_for_player(player_commit: String) -> Vec<u8>{
 
-    let input = format!("{}${}", player_commit, 0); //// sha256 bits has 32 bytes length, each of which is in a range between 0 up to 255 
+    let input = format!("{}", player_commit); //// sha256 bits has 32 bytes length, each of which is in a range between 0 up to 255 
     let hash = hash::hash(input.as_bytes());
     let cells = hash.try_to_vec().unwrap();
     cells
 }
 
+pub fn generate_announce_values(annouce_commit: String) -> Vec<u8>{
 
-pub fn create_table(size: u16, player_commit: String) -> Vec<Cell>{
-    let mut cells: Vec<Cell> = vec![];
-    pub fn is_duplicate(val: u16, col_vals: Vec<u16>) -> bool{
-        for i in 0..col_vals.len(){
-            if col_vals[i] == val{
+    let input = format!("{}", annouce_commit); //// sha256 bits has 32 bytes length, each of which is in a range between 0 up to 255 
+    let hash = hash::hash(input.as_bytes());
+    let announ_vals = hash.try_to_vec().unwrap();
+    announ_vals
+}
+
+
+pub fn create_table(size: i32, player_commit: String) -> Vec<Cell>{
+
+    let cell_random_values = crate::generate_cell_values_for_player(player_commit);
+    let mut table = vec![];
+
+    fn is_duplicate_fn(val: i32, col_vals: &mut Vec<i32>) -> bool{
+        for av_idx in 0..col_vals.len(){
+            if col_vals[av_idx] == val{
                 return true;
+            } else{
+                return false;
             }
         }
         return false;
     }
-    let cell_values = crate::generate_cell_values_for_player(player_commit);
-    
-    for val in 0..size{
-        let col_vals: Vec<u16> = vec![];
-        let (min, max) = get_column_range(val);
+
+    for row_idx in 0..size{
+        
+        let mut col_vals: Vec<i32> = vec![];
+        let mutable_pointer_to_col_vals = &mut col_vals;
+        let (min, max) = get_column_range(row_idx);
+        for val in cell_random_values.clone(){
+            if min <= val as i32 && val as i32 <= max{
+                if is_duplicate_fn(val as i32, mutable_pointer_to_col_vals){
+                    continue;
+                } else{
+                    /*
+                        we can't have a mutable borrow more that once in a scope
+                        thus we must mutate the actual typa which is col_vals 
+                        using its mutable pointer because there is another mutable
+                        borrow which is passed to the is_duplicate_fn function
+                    */
+                    mutable_pointer_to_col_vals.push(val as i32);
+                }
+            } else{
+                continue;
+            }
+        }
+
+        for col_idx in 0..col_vals.len(){
+            for j in 0..cell_random_values.len() - col_idx - 1{
+                if col_vals[j] > col_vals[j+1]{
+                    (col_vals[j], col_vals[j+1]) = (col_vals[j+1], col_vals[j])  
+                }
+            }
+
+            table.push(Cell{
+                x: row_idx,
+                y: col_idx as i32,
+                value: col_vals[col_idx]
+            });
+        }
+
     }
 
+    table
 
-    cells
 }
 
-pub fn get_column_range(x: u16) -> (u16, u16){
+pub fn get_column_range(x: i32) -> (i32, i32){
     let min = x * 20;
     let max = (x + 1) * 20; 
     return (min, max)
 }
 
-pub fn create_announced_values(size: u16, max_rounds: u16) -> Vec<Vec<Round>>{
-    todo!()
-} 
+pub fn create_announced_values(size: i32, max_rounds: i32, annouce_commit: String) -> Vec<Round>{
+    
+    struct JockerXs{
+        pub round_idx: i32,
+        pub round_val: i32
+    }
+    let mut annouce_random_vals = generate_announce_values(annouce_commit);
+    let mut joker_xs: Vec<JockerXs> = vec![];
+    let mut round = 0;
+    let mut result_announced_values: Vec<Round> = vec![];
+    
+    /* 
+        closures can capture env vars so we can access them 
+        inside the closure method, with function we can't do that,
+        unless we pass a mutable reference to result_announced_values
+        since by mutating the mutable pointer of the main type
+        the actual type will be mutated too, also result_announced_values 
+        must be initialized in order the closure to be able 
+        to capture it into its env
+    */
 
+    fn is_duplicate_fn(val: i32, val_idx: i32, result_announced_values: &mut Vec<Round>) -> bool{
+        for av_idx in 0..result_announced_values.len(){
+            if (result_announced_values[av_idx].values[val_idx as usize]) as i32 == val{
+                return true;
+            } else{
+                return false;
+            }
+        }
+        return false;
+    }
 
+    /*
+        the following closure will borrow and capture the result_announced_values var
+        as immutable, thus we can't push into the result_announced_values vector 
+        later on since rust doesn't allow to borrow the type as mutable if it's 
+        borrowed as immutable already in a scope.
+    */
+    let is_duplicate = |val: i32, val_idx: i32|{
+        for av_idx in 0..result_announced_values.len(){
+            if (result_announced_values[av_idx].values[val_idx as usize]) as i32 == val{
+                return true;
+            } else{
+                return false;
+            }
+        }
+        return false;
+    };
+
+    for i in (3..max_rounds).step_by(3){
+        for announ_val in annouce_random_vals.clone(){
+            if 0 <= announ_val as i32 && announ_val as i32 <= size{
+                joker_xs.push(JockerXs{
+                    round_idx: i,
+                    round_val: announ_val as i32,
+                }); 
+            } else{
+                continue;
+            }
+        }   
+    }
+
+    while round < max_rounds{
+        let mut announ_vals = vec![0i32];
+        for x in 0..size{
+            let (min, max) = get_column_range(x);
+            for announ_val in annouce_random_vals.clone(){
+                let mut av = announ_val as i32;
+                if min <= announ_val as i32 && announ_val as i32 <= max{
+                    if is_duplicate_fn(announ_val as i32, x, &mut result_announced_values.clone()){
+                        continue;
+                    } else{
+                        for jx in &joker_xs{ /* since Clone trait is not implemented for the JockerXs we must borrow the instance in each iteration to prevent from moving  */
+                            if jx.round_idx == round{
+                                let jx_rv = jx.round_val;
+                                if jx_rv == x{
+                                    av = VALUE_JOKER;
+                                }
+                            } else{
+                                continue;
+                            }
+                        }
+                        announ_vals.push(av)
+                    }
+                }
+            }
+        }
+
+        result_announced_values.push(
+            Round{
+                round_val: round,
+                values: announ_vals.clone()
+            }
+        );
+
+        round+=1;
+    }
+
+    result_announced_values
+
+}    
 
 
 
@@ -201,22 +344,21 @@ pub mod ognils {
     }
 
     pub fn start_game(ctx: Context<StartGame>, players: Vec<PlayerInfo>, bump: u8,
-                      rounds: u16, size: u16, match_id: String) -> Result<()>
+                      rounds: i32, size: i32, match_id: String, announce_commit: String) -> Result<()>
     {
 
-        let announced_values = create_announced_values(size, rounds);
+        let announced_values = create_announced_values(size, rounds, announce_commit);
         let server = &ctx.accounts.server;
         let server_pda = &mut ctx.accounts.match_pda; // a mutable pointer to the match pda since ctx.accounts fields doesn't implement Copy trait 
         
         let mut players_data = vec![]; 
         for player in players{
-            let player_table = vec![];
+
             let player_instance = Player{
                 pub_key: player.pub_key,
-                table: player_table
+                table: create_table(size, player.commit) // creating the table with the passed in size 
             };
 
-            create_table(size, player.commit); // creating the table with the passed in size 
             players_data.push(player_instance);
         }
 
@@ -320,9 +462,9 @@ pub mod ognils {
 
 #[derive(Debug, Clone, AnchorSerialize, AnchorDeserialize, Default)]
 pub struct Cell{
-   pub x: u16,
-   pub y: u16,
-   pub value: u16,
+   pub x: i32,
+   pub y: i32,
+   pub value: i32,
 }
 
 #[derive(Debug, Clone, AnchorSerialize, AnchorDeserialize, Default)]
@@ -339,7 +481,8 @@ pub struct PlayerInfo{
 
 #[derive(Debug, Clone, AnchorSerialize, AnchorDeserialize, Default)]
 pub struct Round{
-    pub values: Vec<u16>,
+    pub round_val: i32, 
+    pub values: Vec<i32>,
 }
 
 
@@ -349,7 +492,7 @@ pub struct CurrentMatch{
    pub bump: u8,
    pub server: Pubkey,
    pub is_locked: bool,
-   pub announced_values: Vec<Vec<Round>>,
+   pub announced_values: Vec<Round>,
    pub players: Vec<Player>,
 }
 
@@ -364,6 +507,7 @@ pub struct MatchPda{
 pub struct InitUserPda<'info>{
    #[account(mut)]
    pub signer: Signer<'info>, //// player
+   /// CHECK:
    #[account(mut)]
    pub player: AccountInfo<'info>,
    /// CHECK:
@@ -382,6 +526,7 @@ pub struct InitUserPda<'info>{
 pub struct DepositToMatchPda<'info>{
    #[account(mut)]
    pub signer: Signer<'info>, //// server
+   /// CHECK:
    #[account(mut)]
    pub player: AccountInfo<'info>,
    /// CHECK:
@@ -400,6 +545,7 @@ pub struct DepositToMatchPda<'info>{
 pub struct InitMatchPda<'info>{
    #[account(mut)]
    pub signer: Signer<'info>, //// server
+   /// CHECK:
    #[account(mut)]
    pub player: AccountInfo<'info>,
    /// CHECK:
@@ -430,6 +576,7 @@ pub struct StartGame<'info>{
 pub struct WithdrawFromUserPda<'info>{
     #[account(mut)]  
     pub signer: Signer<'info>, //// only player
+   /// CHECK:
     #[account(mut, seeds = [b"slingo", player.key().as_ref()], bump = player_bump)]
     pub user_pda: AccountInfo<'info>,
     #[account(mut, seeds = [match_pda.current_match.match_id.as_bytes(), 
@@ -447,6 +594,7 @@ pub struct WithdrawFromUserPda<'info>{
 pub struct FinishGame<'info>{
     #[account(mut)]  
     pub signer: Signer<'info>, //// only server
+   /// CHECK:
     #[account(init, space = 300, payer = signer, seeds = [b"slingo", server.key().as_ref()], bump)]
     pub match_pda: AccountInfo<'info>,
     /// CHECK:
@@ -497,6 +645,6 @@ pub struct CurrentMatchEvent{
     pub match_id: String,
     pub server: Pubkey,
     pub is_locked: bool,
-    pub announced_values: Vec<Vec<Round>>,
+    pub announced_values: Vec<Round>,
     pub players: Vec<Player>,
 }
