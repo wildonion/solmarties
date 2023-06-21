@@ -5,17 +5,17 @@ skip-lint = false
 [programs.localnet]
 ticket = "bArDn16ERF32oHbL3Qvbsfz55xkj1CdbPV8VYXJtCtk"
 whitelist = "2YQmwuktcWmmhXXAzjizxzie3QWEkZC8HQ4ZnRtrKF7p"
-ognils = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
+ognils = "3CMhnATUZGWaS91YJuQNBzdvBy8fGRprCFxTyMzGkZ45"
 
 [programs.devnet]
 ticket = "bArDn16ERF32oHbL3Qvbsfz55xkj1CdbPV8VYXJtCtk"
 whitelist = "2YQmwuktcWmmhXXAzjizxzie3QWEkZC8HQ4ZnRtrKF7p"
-ognils = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
+ognils = "3CMhnATUZGWaS91YJuQNBzdvBy8fGRprCFxTyMzGkZ45"
 
 [programs.mainnet]
 ticket = "bArDn16ERF32oHbL3Qvbsfz55xkj1CdbPV8VYXJtCtk"
 whitelist = "2YQmwuktcWmmhXXAzjizxzie3QWEkZC8HQ4ZnRtrKF7p"
-ognils = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
+ognils = "3CMhnATUZGWaS91YJuQNBzdvBy8fGRprCFxTyMzGkZ45"
 
 [registry]
 url = "https://api.apr.dev"
@@ -24,7 +24,7 @@ url = "https://api.apr.dev"
 cluster = "localnet"
 # cluster = "devnet"
 # cluster = "mainnet"
-wallet = "/home/wildonion/.config/solana/id.json"
+wallet = "/Users/wildonion/.config/solana/id.json"
 
 [scripts]
 test-ticket = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/ticket.ts"

@@ -29,11 +29,15 @@
 
 use anchor_lang::{prelude::*, solana_program::hash};
 
-declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
+declare_id!("3CMhnATUZGWaS91YJuQNBzdvBy8fGRprCFxTyMzGkZ45");
 
 
 
-pub const VALUE_JOKER: i32 = -1;
+/* 
+    every two chars in hex is 1 byte since every 4 bits is a hex char
+    thus (0xFFFFFFFF) is 4 bytes long or 8 chars in hex
+*/
+pub const VALUE_JOKER: i32 = -1; 
 
 pub fn generate_cell_values_for_player(player_commit: String) -> Vec<u8>{
 
@@ -123,7 +127,7 @@ pub fn create_announced_values(size: i32, max_rounds: i32, annouce_commit: Strin
         pub round_idx: i32,
         pub round_val: i32
     }
-    let mut annouce_random_vals = generate_announce_values(annouce_commit);
+    let annouce_random_vals = generate_announce_values(annouce_commit);
     let mut joker_xs: Vec<JockerXs> = vec![];
     let mut round = 0;
     let mut result_announced_values: Vec<Round> = vec![];

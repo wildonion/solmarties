@@ -19,7 +19,7 @@ sudo chmod +x deploy.sh && ./deploy.sh
 * Generate a new keypair using ```solana-keygen new``` command, the following sample output is important for us! We'll use this public key as the program authority to deploy the program with it. 
 
 ```console
-Wrote new keypair to /Users/wildonion/.config/solana/id.json
+Wrote new keypair to /Users/$USER/.config/solana/id.json
 ============================================================================
 pubkey: DaWYunpuRDQfuaJXvmQssQYvqfkshx6P6dihRCzSLCcr
 ============================================================================
@@ -29,7 +29,7 @@ conduct embark six chaos olympic harvest youth garbage tower jazz slow taste
 
 ```
 
-* You can extract the public key using ```solana address -k /home/$USER/.config/solana/id.json``` command.
+* You can extract the public key using ```solana address -k /Users/$USER/.config/solana/id.json``` command.
 
 * Change the `provider` field inside the `Anchor.toml` file with the proper path of the generated wallet address JSON.
 
@@ -45,9 +45,9 @@ conduct embark six chaos olympic harvest youth garbage tower jazz slow taste
     * the output of the deploy command is something like:
         ```console
             Deploying workspace: http://localhost:8899
-            Upgrade authority: /home/$USER/.config/solana/id.json
+            Upgrade authority: /Users/$USER/.config/solana/id.json
             Deploying program "ticket"...
-            Program path: /home/$USER/Documents/gem/conse/target/deploy/ticket.so...
+            Program path: /Users/$USER/Documents/gem/conse/target/deploy/ticket.so...
             Program Id: bArDn16ERF32oHbL3Qvbsfz55xkj1CdbPV8VYXJtCtk
 
             Deploy success
@@ -101,9 +101,9 @@ conduct embark six chaos olympic harvest youth garbage tower jazz slow taste
 * the output of the deploy command is something like:
     ```console
         Deploying workspace: https://api.devnet.solana.com
-        Upgrade authority: /home/$USER/.config/solana/id.json
+        Upgrade authority: /Users/$USER/.config/solana/id.json
         Deploying program "ticket"...
-        Program path: /home/$USER/Documents/gem/conse/target/deploy/ticket.so...
+        Program path: /Users/$USER/Documents/gem/conse/target/deploy/ticket.so...
         Program Id: bArDn16ERF32oHbL3Qvbsfz55xkj1CdbPV8VYXJtCtk
 
         Deploy success
@@ -124,6 +124,8 @@ conduct embark six chaos olympic harvest youth garbage tower jazz slow taste
     * also you can check the deployed contract address or the **Program Id** with ```solana address -k target/deploy/ticket-keypair.json``` command.
 
 ## 🍟 Notes
+
+* once the program gets compiled successfully a keypair for the program will be generated inside `target/deploy/<PROGRAM_NAME>-keypair.json` which contains the public key of the program and can be used to set the program id of the contract inside the code. 
 
 * Before running the deploy script make sure that you've installed the nodejs and also set the `cluster` field to the `mainnet` or the address of your node on either devnet or mainnet like Alchemy node, inside the `Anchor.toml` besides change the solana cluster using ```solana config set --url mainnet``` or ```solana config set --url <CUSTOM_RPC_ENDPOINT>``` also make sure that your account has enough balance for deploying the program.
 
@@ -147,4 +149,4 @@ conduct embark six chaos olympic harvest youth garbage tower jazz slow taste
 
 * the steps to build and deploy the whitelist contract is the same as the ticket contract, simply run ```anchor build --program-name whitelist``` and then ```anchor build --program-name whitelist```. 
 
-* ```solana balance``` shows the balance of the address inside the `/home/$USER/.config/solana/id.json` on the selected network which is one of the `devnet`, `testnet` or `localhost`.
+* ```solana balance``` shows the balance of the address inside the `/Users/$USER/.config/solana/id.json` on the selected network which is one of the `devnet`, `testnet` or `localhost`.
