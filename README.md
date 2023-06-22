@@ -8,6 +8,8 @@
 
 ## 🚀 Build and Deploy all Contracts 
 
+> Makre sure you have compatible version: solana-cli version: 1.16.1 | anchor version: 0.28.0
+
 > Make sure you have a setup solana wallet using ```solana-keygen new``` command.
 
 ```console
