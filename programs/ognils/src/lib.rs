@@ -25,12 +25,13 @@
 
     step 1) charge server and user wallet
     step 2) init user pda must be called to create user pda on chain, this can be done by server to avoid double signing by user 
-    step 3) init match pda by server
-    step 4) user sends SOL to user pda 
-    step 5) server call deposit method to send SOL from user pda to match pda 
-    step 6) start game 
-    step 7) at any time user can call withdraw method which transfers SOL from user pda to user wallet 
-    step 8) finish game
+    step3) init match pda by server
+    step4) user sends SOL to user pda 
+    step5) server call deposit method to send SOL from user pda to match pda 
+    step6) start game 
+    step7) at any time user can call withdraw method which transfers SOL from user pda to user wallet 
+    step8) finish game
+
 
 */
 
@@ -321,7 +322,7 @@ pub mod ognils {
             let current_match_players = current_match.players.clone();
             let mut find_player = current_match_players[player_index].clone();
             if player_pda_balance > 0{
-                **user_pda.try_borrow_mut_lamports()? -= amount;
+                **user_pda.to_account_info().try_borrow_mut_lamports()? -= amount;
                 **player.try_borrow_mut_lamports()? += amount;
             } else{
                 return err!(ErrorCode::PlayerBalanceIsZero);
@@ -362,15 +363,15 @@ pub mod ognils {
             return err!(ErrorCode::RestrictionError);
         } 
 
-        **user_pda_account.try_borrow_mut_lamports()? -= amount;
+        **user_pda_account.to_account_info().try_borrow_mut_lamports()? -= amount;
         **match_pda_account.try_borrow_mut_lamports()? += amount;
 
         Ok(())
 
     }
 
-    pub fn start_game(ctx: Context<StartGame>, players: Vec<PlayerInfo>, bump: u8,
-                      rounds: i32, size: i32, match_id: String, announce_commit: String) -> Result<()>
+    pub fn start_game(ctx: Context<StartGame>, match_id: String, players: Vec<PlayerInfo>, bump: u8,
+                      rounds: i32, size: i32, announce_commit: String) -> Result<()>
     {
 
         let announced_values = create_announced_values(size, rounds, announce_commit);
@@ -430,7 +431,7 @@ pub mod ognils {
         //// like unwrap() in order not to be moved. 
 
 
-        let match_pda = &ctx.accounts.match_pda;
+        let match_pda = &ctx.accounts.match_pda.to_account_info();
         let signer = ctx.accounts.signer.key;
         let server = ctx.accounts.server.key;
 
@@ -451,7 +452,7 @@ pub mod ognils {
                                                      fourth_player_account, fifth_player_account, sixth_player_account];
         
         let mut winner_count = 0;
-        let current_match_pda_amout = **ctx.accounts.match_pda.try_borrow_lamports()?;
+        let current_match_pda_amout = **ctx.accounts.match_pda.to_account_info().try_borrow_lamports()?;
         if current_match_pda_amout > 0{
 
             let winner_flags = winners
@@ -535,6 +536,11 @@ pub struct MatchPda{
     current_match: CurrentMatch,
 }
 
+#[account]
+pub struct UserPda{
+    user_wallet: Pubkey,
+}
+
 
 #[derive(Accounts)]
 pub struct InitUserPda<'info>{
@@ -548,7 +554,7 @@ pub struct InitUserPda<'info>{
    pub server: AccountInfo<'info>,
    /// CHECK:
    #[account(init, payer = signer, space = 300, seeds = [b"ognils", player.key().as_ref()], bump)]
-   pub user_pda: AccountInfo<'info>,
+   pub user_pda: Account<'info, UserPda>,
    #[account(mut, seeds = [match_pda.current_match.match_id.as_bytes(), server.key().as_ref()], bump)]
    pub match_pda: Account<'info, MatchPda>,
    pub system_program: Program<'info, System>,
@@ -567,7 +573,7 @@ pub struct DepositToMatchPda<'info>{
    pub server: AccountInfo<'info>,
    /// CHECK:
    #[account(mut, seeds = [b"ognils", player.key().as_ref()], bump)]
-   pub user_pda: AccountInfo<'info>,
+   pub user_pda: Account<'info, UserPda>,
    #[account(mut, seeds = [match_pda.current_match.match_id.as_bytes(), server.key().as_ref()], bump)]
    pub match_pda: Account<'info, MatchPda>,
    pub system_program: Program<'info, System>,
@@ -598,7 +604,9 @@ pub struct StartGame<'info>{
    /// CHECK:
    #[account(mut)]
    pub server: AccountInfo<'info>,
-   #[account(init, payer = signer, space = 300, seeds = [match_id.as_bytes(), server.key().as_ref()], bump)]
+   #[account(mut, seeds = [match_pda.current_match.match_id.as_bytes(), 
+                            match_pda.current_match.server.key().as_ref()], 
+                            bump = match_pda.current_match.bump)]
    pub match_pda: Account<'info, MatchPda>,
    pub system_program: Program<'info, System>,
 }
@@ -611,7 +619,7 @@ pub struct WithdrawFromUserPda<'info>{
     pub signer: Signer<'info>, //// only player
    /// CHECK:
     #[account(mut, seeds = [b"ognils", player.key().as_ref()], bump = player_bump)]
-    pub user_pda: AccountInfo<'info>,
+    pub user_pda: Account<'info, UserPda>,
     #[account(mut, seeds = [match_pda.current_match.match_id.as_bytes(), 
                             match_pda.current_match.server.key().as_ref()], 
                             bump = match_pda.current_match.bump)]
@@ -628,29 +636,31 @@ pub struct FinishGame<'info>{
     #[account(mut)]  
     pub signer: Signer<'info>, //// only server
    /// CHECK:
-    #[account(init, space = 300, payer = signer, seeds = [b"ognils", server.key().as_ref()], bump)]
-    pub match_pda: AccountInfo<'info>,
+   #[account(mut, seeds = [match_pda.current_match.match_id.as_bytes(), 
+                            match_pda.current_match.server.key().as_ref()], 
+                            bump = match_pda.current_match.bump)]
+    pub match_pda: Account<'info, MatchPda>,
     /// CHECK:
     #[account(mut)]
     pub server: AccountInfo<'info>,
     /// CHECK:
     #[account(mut, seeds = [b"ognils", first_user_pda.key().as_ref()], bump = player_bumps[0] as u8)]
-    pub first_user_pda: Option<AccountInfo<'info>>,
+    pub first_user_pda: Option<Account<'info, UserPda>>,
     /// CHECK:
     #[account(mut, seeds = [b"ognils", second_user_pda.key().as_ref()], bump = player_bumps[1] as u8)]
-    pub second_user_pda: Option<AccountInfo<'info>>,
+    pub second_user_pda: Option<Account<'info, UserPda>>,
     /// CHECK:
     #[account(mut, seeds = [b"ognils", third_user_pda.key().as_ref()], bump = player_bumps[2] as u8)]
-    pub third_user_pda: Option<AccountInfo<'info>>,
+    pub third_user_pda: Option<Account<'info, UserPda>>,
     /// CHECK:
     #[account(mut, seeds = [b"ognils", fourth_user_pda.key().as_ref()], bump = player_bumps[3] as u8)]
-    pub fourth_user_pda: Option<AccountInfo<'info>>,
+    pub fourth_user_pda: Option<Account<'info, UserPda>>,
     /// CHECK:
     #[account(mut, seeds = [b"ognils", fifth_user_pda.key().as_ref()], bump = player_bumps[4] as u8)]
-    pub fifth_user_pda: Option<AccountInfo<'info>>,
+    pub fifth_user_pda: Option<Account<'info, UserPda>>,
     /// CHECK:
     #[account(mut, seeds = [b"ognils", sixth_user_pda.key().as_ref()], bump = player_bumps[5] as u8)]
-    pub sixth_user_pda: Option<AccountInfo<'info>>,
+    pub sixth_user_pda: Option<Account<'info, UserPda>>,
     pub system_program: Program<'info, System>,
 }
 
