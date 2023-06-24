@@ -22,6 +22,16 @@
     players inside the queue are 6 thus not all of them can be Some, it must 
     be checked for its Some part before paying the winner.  
 
+
+    step 1) charge server and user wallet
+    step 2) init user pda must be called to create user pda on chain, this can be done by server to avoid double signing by user 
+    step 3) init match pda by server
+    step 4) user sends SOL to user pda 
+    step 5) server call deposit method to send SOL from user pda to match pda 
+    step 6) start game 
+    step 7) at any time user can call withdraw method which transfers SOL from user pda to user wallet 
+    step 8) finish game
+
 */
 
 

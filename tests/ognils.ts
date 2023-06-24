@@ -97,7 +97,7 @@ describe("Ognils", () => {
       // find match pda account for game
       const [matchPDA, match_pda_bump] = PublicKey
       .findProgramAddressSync(
-          [server.publicKey.toBuffer(), Buffer.from(match_id, "utf-8")],
+          [Buffer.from(match_id, "utf-8"), server.publicKey.toBuffer()],
           program.programId
         )
       
@@ -109,7 +109,7 @@ describe("Ognils", () => {
       // find pda account for player
       const [userPDA, user_pda_bump] = PublicKey
       .findProgramAddressSync(
-          [server.publicKey.toBuffer(), player.publicKey.toBuffer()],
+          [Buffer.from("slingo", "utf-8"), player.publicKey.toBuffer()],
           program.programId
         )
 
