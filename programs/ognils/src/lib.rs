@@ -40,7 +40,7 @@
 
 use anchor_lang::{prelude::*, solana_program::hash};
 
-declare_id!("3CMhnATUZGWaS91YJuQNBzdvBy8fGRprCFxTyMzGkZ45");
+declare_id!("YRDxsg529tECpHUToZ61uMfUeWF2fDCzLeJoLNq4dFt");
 
 
 
@@ -370,8 +370,15 @@ pub mod ognils {
 
     }
 
-    pub fn start_game(ctx: Context<StartGame>, match_id: String, players: Vec<PlayerInfo>, bump: u8,
-                      rounds: i32, size: i32, announce_commit: String) -> Result<()>
+    pub fn start_game(ctx: Context<StartGame>, match_id: String, 
+        first_player: Option<PlayerInfo>,
+        second_player: Option<PlayerInfo>,
+        third_player: Option<PlayerInfo>,
+        fourth_player: Option<PlayerInfo>,
+        fifth_player: Option<PlayerInfo>,
+        sixth_player: Option<PlayerInfo>,
+        bump: u8,
+        rounds: i32, size: i32, announce_commit: String) -> Result<()>
     {
 
         let announced_values = create_announced_values(size, rounds, announce_commit);
@@ -379,14 +386,58 @@ pub mod ognils {
         let server_pda = &mut ctx.accounts.match_pda; // a mutable pointer to the match pda since ctx.accounts fields doesn't implement Copy trait 
         
         let mut players_data = vec![]; 
-        for player in players{
 
-            let player_instance = Player{
-                pub_key: player.pub_key.to_string(),
-                table: create_table(size, player.commit) // creating the table with the passed in size 
+        if first_player.is_some(){
+            let player1_instance = Player{
+                pub_key: fifth_player.clone().unwrap().pub_key.to_string(),
+                table: create_table(size, fifth_player.clone().unwrap().commit) // creating the table with the passed in size 
             };
+            players_data.push(player1_instance);
+        }
 
-            players_data.push(player_instance);
+        if second_player.is_some(){
+            let player2_instance = Player{
+                pub_key: second_player.clone().unwrap().pub_key.to_string(),
+                table: create_table(size, second_player.clone().unwrap().commit) // creating the table with the passed in size 
+            };
+            players_data.push(player2_instance);
+        }
+
+
+
+        if third_player.is_some(){
+            let player3_instance = Player{
+                pub_key: third_player.clone().unwrap().pub_key.to_string(),
+                table: create_table(size, third_player.clone().unwrap().commit) // creating the table with the passed in size 
+            };
+            players_data.push(player3_instance);
+        }
+
+
+        if fourth_player.is_some(){
+            let player4_instance = Player{
+                pub_key: fourth_player.clone().unwrap().pub_key.to_string(),
+                table: create_table(size, fourth_player.clone().unwrap().commit) // creating the table with the passed in size 
+            };
+            players_data.push(player4_instance);
+        }
+
+
+        if fifth_player.is_some(){
+            let player5_instance = Player{
+                pub_key: fifth_player.clone().unwrap().pub_key.to_string(),
+                table: create_table(size, fifth_player.clone().unwrap().commit) // creating the table with the passed in size 
+            };
+            players_data.push(player5_instance);
+        }
+
+
+        if sixth_player.is_some(){
+            let player6_instance = Player{
+                pub_key: sixth_player.clone().unwrap().pub_key.to_string(),
+                table: create_table(size, sixth_player.clone().unwrap().commit) // creating the table with the passed in size 
+            };
+            players_data.push(player6_instance);
         }
 
         let current_match = CurrentMatch{
