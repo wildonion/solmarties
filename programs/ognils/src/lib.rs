@@ -590,7 +590,7 @@ pub struct InitMatchPda<'info>{
    /// CHECK:
    #[account(mut)]
    pub server: AccountInfo<'info>,
-   #[account(init, payer = signer, space = 300, seeds = [match_id.as_bytes(), server.key().as_ref()], bump)]
+   #[account(init, payer = signer, space = 1024, seeds = [match_id.as_bytes(), server.key().as_ref()], bump)]
    pub match_pda: Account<'info, MatchPda>,
    pub system_program: Program<'info, System>,
 }
