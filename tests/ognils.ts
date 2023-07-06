@@ -32,7 +32,7 @@ import { publicKey } from "@coral-xyz/anchor/dist/cjs/utils";
 
 
 
-describe("Ognils", () => {
+describe("ognils", () => {
 
   // TODO - use a real provider or connection like testnet or devnet
   // Configure the client to use the local cluster.
@@ -49,14 +49,6 @@ describe("Ognils", () => {
 
   //////// TODO - maximum players can be 6 inside mmq
   const player = anchor.web3.Keypair.generate(); // TODO - wallet handler
-  interface PlayerInfo{
-    pubKey: string;
-    commit: string;
-  };
-  let info1: PlayerInfo = {
-    pubKey: player.publicKey.toString(),
-    commit: "player-random-seed-commit"
-  };
   
    
   
@@ -114,7 +106,7 @@ describe("Ognils", () => {
         )
 
       // init user pda
-      await program.methods.initUserPda()
+      await program.methods.initUserPda(match_id)
       .accounts({signer: server.publicKey, player: player.publicKey, server: server.publicKey, userPda: userPDA, matchPda: matchPDA
         }).signers([server]).rpc(); //// signer of this call who must pay for the transaction fee which is the server
       
@@ -137,14 +129,14 @@ describe("Ognils", () => {
       // but the deposited amount passed into the call
       // must be equals to the one that player is 
       // deposited before  
-      await program.methods.deposit(new anchor.BN(1_000_000_000))
+      await program.methods.deposit(match_id, new anchor.BN(1_000_000_000))
         .accounts({signer: server.publicKey, player: player.publicKey, server: server.publicKey, userPda: userPDA, matchPda: matchPDA
           }).signers([server]).rpc(); //// signer of this call who must pay for the transaction fee which is the server
         
       //----------------------------------
       // withdraw from match pda by player
       //----------------------------------
-      await program.methods.withdraw(user_pda_bump, new anchor.BN(1_000_000_000))
+      await program.methods.withdraw(user_pda_bump, match_id, new anchor.BN(1_000_000_000))
       .accounts({signer: player.publicKey, player: player.publicKey,  userPda: userPDA, matchPda: matchPDA
         }).signers([player]).rpc(); //// signer of this call who must pay for the transaction fee which is the server
     
@@ -155,21 +147,25 @@ describe("Ognils", () => {
     // -=-=--=--=--=--=--=--=--=--=-=--=--=--=--=--=--=--=--=-=--=--=
     
 
-    let announce_commit = "announce-random-seed-commit"; /////// TODO - 
-    let players = [info1]; /////// TODO - 
-    let rounds = 10; /////// TODO - 
-    let size: 5; /////// TODO - 
+    let announce_commit = 12; /////// TODO - 
+    let server_commit = "server-commit";
+    let p1_pub_key = player.publicKey.toBytes;
+    let players = [p1_pub_key, null, null, null, null, null]; /////// TODO - 
 
     //----------------------
     // start game
     //----------------------
+    // match_id: String, 
+    // players: [Pubkey; 6],
+    // server_commit: String, 
+    // bet_value: u64,
+    // bump: u8,
     await program.methods.startGame(
           match_id,
-          players,
           match_pda_bump,
-          rounds,
-          size,
-          announce_commit,
+          players,
+          server_commit,
+          new anchor.BN(1_000_000_000),
         )
         .accounts({
             signer: server.publicKey, 
@@ -181,7 +177,9 @@ describe("Ognils", () => {
     //----------------------
     // finish game
     //----------------------
-    await program.methods.finishGame([user_pda_bump])
+    let server_key = "server-key";
+    let ipfs_link = "ipfs game status link";
+    await program.methods.finishGame([user_pda_bump], server_key, ipfs_link, match_id)
     .accounts({
         signer: server.publicKey, 
         server: server.publicKey, 

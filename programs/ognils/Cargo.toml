@@ -17,4 +17,5 @@ default = []
 
 [dependencies]
 anchor-lang = "0.28.0"
-getrandom = { version = "0.2", features = ["custom"] }
+# getrandom = { version = "0.2", features = ["custom"] }
+bytemuck = { version = "1.4.0", features = ["derive", "min_const_generics"]}
