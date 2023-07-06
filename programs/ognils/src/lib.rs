@@ -107,22 +107,39 @@ pub mod ognils {
         let user_pda = &mut ctx.accounts.user_pda;
         let signer = &ctx.accounts.signer; //// only player can withdraw
         let player = &ctx.accounts.player;
-        //// accounts fields doesn't implement Copy trait 
-        //// like Account fields are not Copy thus we must 
-        //// borrow the ctx in order not to move 
-        let match_pda = &mut ctx.accounts.match_pda; 
-        let match_pda_account = match_pda.to_account_info();
-        let current_match = match_pda.clone();
         let player_pda_balance = player.try_lamports()?; 
 
         if signer.key != player.key{
             return err!(ErrorCode::RestrictionError);
         }
 
-
-        if player_pda_balance > 0{
+        if player_pda_balance > 0 && player_pda_balance > amount{
             **user_pda.to_account_info().try_borrow_mut_lamports()? -= amount;
             **player.try_borrow_mut_lamports()? += amount;
+        } else{
+            return err!(ErrorCode::PlayerBalanceIsZero);
+        }
+    
+
+        Ok(())
+        
+    }
+
+    pub fn server_withdraw(ctx: Context<WithdrawFromMatchPda>, match_id: String, amount: u64) -> Result<()>{
+
+        let server_pda = &mut ctx.accounts.match_pda;
+        let signer = &ctx.accounts.signer; //// only player can withdraw
+        let server = &ctx.accounts.server;
+        let server_pda_balance = server.try_lamports()?; 
+
+        if signer.key != server.key{
+            return err!(ErrorCode::RestrictionError);
+        }
+
+
+        if server_pda_balance > 0 && server_pda_balance > amount {
+            **server_pda.to_account_info().try_borrow_mut_lamports()? -= amount;
+            **server.try_borrow_mut_lamports()? += amount;
         } else{
             return err!(ErrorCode::PlayerBalanceIsZero);
         }
@@ -185,9 +202,14 @@ pub mod ognils {
         }
 
 
+        if **server_pda.to_account_info().try_borrow_lamports()? < bet_value{
+            return err!(ErrorCode::PdaCantHaveAmountLowerThanBetValue);
+        }
+
+
         let mut last_nonce = 0;
         let mut new_table = Vec::<u8>::new();
-        for nonce in 0..17{
+        for nonce in 1..17{
 
             let _32bytes_input = format!("{}${}", nonce, server_commit);
             let _32_hash = hash::hash(_32bytes_input.as_bytes());
@@ -205,7 +227,7 @@ pub mod ognils {
         new_table.append(last_part_table);
 
         let mut chain_table = [0u8; 528];
-        for table_idx in 0..529{
+        for table_idx in 0..528{
             chain_table[table_idx] = new_table[table_idx];
         }
         server_pda.chain_table = chain_table;
@@ -222,10 +244,9 @@ pub mod ognils {
     }
 
     pub fn finish_game(ctx: Context<FinishGame>, 
-            player_bumps: Vec<u16>,
+            match_id: String,
             server_key: String, 
             ipfs_link: String, 
-            match_id: String
         ) -> Result<()>{ 
         
         //// since Copy traint is not implemented for ctx.accounts fields
@@ -236,6 +257,7 @@ pub mod ognils {
         //// like unwrap() in order not to be moved. 
 
         let match_pda = &ctx.accounts.match_pda.to_account_info();
+        let match_pda_data = &ctx.accounts.match_pda;
         let signer = ctx.accounts.signer.key;
         let server = ctx.accounts.server.key;
 
@@ -274,7 +296,9 @@ pub mod ognils {
                     })
                     .collect::<Vec<bool>>();
                 
-                let winner_reward = current_match_pda_amout / winner_count; //// spread between winners equally
+                let winner_reward = match_pda_data.bet_value / winner_count; //// spread between winners equally
+                let ramining_in_pda = current_match_pda_amout - winner_reward;
+                
 
                 for is_winner_idx in 0..winner_flags.len(){
                     //// every element inside winner_flags is a boolean map to the winner index inside the winners 
@@ -431,8 +455,24 @@ pub struct WithdrawFromUserPda<'info>{
     pub system_program: Program<'info, System>,
 }
 
+
 #[derive(Accounts)]
-#[instruction(player_bumps: Vec<u8>, match_id: String)]
+#[instruction(match_id: String)]
+pub struct WithdrawFromMatchPda<'info>{
+    #[account(mut)]  
+    pub signer: Signer<'info>, //// only server
+    #[account(mut, seeds = [match_id.as_bytes(), 
+                            match_pda.server.key().as_ref()], 
+                            bump = match_pda.bump)]
+    pub match_pda: Box<Account<'info, MatchPda>>,
+    /// CHECK:
+    #[account(mut)]
+    pub server: AccountInfo<'info>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+#[instruction(match_id: String)]
 pub struct FinishGame<'info>{
     #[account(mut)]  
     pub signer: Signer<'info>, //// only server
@@ -445,23 +485,23 @@ pub struct FinishGame<'info>{
     #[account(mut)]
     pub server: AccountInfo<'info>,
     /// CHECK:
-    #[account(mut, seeds = [b"ognils", first_user_pda.key().as_ref()], bump = player_bumps[0] as u8)]
-    pub first_user_pda: Option<Account<'info, UserPda>>,
+    #[account(mut)]
+    pub first_user_pda: Option<AccountInfo<'info>>,
     /// CHECK:
-    #[account(mut, seeds = [b"ognils", second_user_pda.key().as_ref()], bump = player_bumps[1] as u8)]
-    pub second_user_pda: Option<Account<'info, UserPda>>,
+    #[account(mut)]
+    pub second_user_pda: Option<AccountInfo<'info>>,
     /// CHECK:
-    #[account(mut, seeds = [b"ognils", third_user_pda.key().as_ref()], bump = player_bumps[2] as u8)]
-    pub third_user_pda: Option<Account<'info, UserPda>>,
+    #[account(mut)]
+    pub third_user_pda: Option<AccountInfo<'info>>,
     /// CHECK:
-    #[account(mut, seeds = [b"ognils", fourth_user_pda.key().as_ref()], bump = player_bumps[3] as u8)]
-    pub fourth_user_pda: Option<Account<'info, UserPda>>,
+    #[account(mut)]
+    pub fourth_user_pda: Option<AccountInfo<'info>>,
     /// CHECK:
-    #[account(mut, seeds = [b"ognils", fifth_user_pda.key().as_ref()], bump = player_bumps[4] as u8)]
-    pub fifth_user_pda: Option<Account<'info, UserPda>>,
+    #[account(mut)]
+    pub fifth_user_pda: Option<AccountInfo<'info>>,
     /// CHECK:
-    #[account(mut, seeds = [b"ognils", sixth_user_pda.key().as_ref()], bump = player_bumps[5] as u8)]
-    pub sixth_user_pda: Option<Account<'info, UserPda>>,
+    #[account(mut)]
+    pub sixth_user_pda: Option<AccountInfo<'info>>,
     pub system_program: Program<'info, System>,
 }
 
@@ -480,6 +520,8 @@ pub enum ErrorCode {
     MatchIsLocked,
     #[msg("Match PDA Is Empty!")]
     MatchPdaIsEmpty,
+    #[msg("Match PDA Can't Have Amount Lower Than Bet Value")]
+    PdaCantHaveAmountLowerThanBetValue
 }
 
 

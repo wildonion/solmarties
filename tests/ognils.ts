@@ -32,7 +32,7 @@ import { publicKey } from "@coral-xyz/anchor/dist/cjs/utils";
 
 
 
-describe("ognils", () => {
+describe("slingo", () => {
 
   // TODO - use a real provider or connection like testnet or devnet
   // Configure the client to use the local cluster.
@@ -101,7 +101,7 @@ describe("ognils", () => {
       // find pda account for player
       const [userPDA, user_pda_bump] = PublicKey
       .findProgramAddressSync(
-          [Buffer.from("ognils", "utf-8"), player.publicKey.toBuffer()],
+          [Buffer.from("slingo", "utf-8"), player.publicKey.toBuffer()],
           program.programId
         )
 
@@ -134,11 +134,19 @@ describe("ognils", () => {
           }).signers([server]).rpc(); //// signer of this call who must pay for the transaction fee which is the server
         
       //----------------------------------
-      // withdraw from match pda by player
+      // withdraw from user pda by player
       //----------------------------------
       await program.methods.withdraw(user_pda_bump, match_id, new anchor.BN(1_000_000_000))
       .accounts({signer: player.publicKey, player: player.publicKey,  userPda: userPDA, matchPda: matchPDA
         }).signers([player]).rpc(); //// signer of this call who must pay for the transaction fee which is the server
+    
+
+      //----------------------------------
+      // withdraw from match pda by server
+      //----------------------------------
+      await program.methods.serverWithdraw(match_id, new anchor.BN(1_000_000))
+      .accounts({signer: player.publicKey, server: server.publicKey, matchPda: matchPDA
+        }).signers([server]).rpc(); //// signer of this call who must pay for the transaction fee which is the server
     
           
 
@@ -179,7 +187,7 @@ describe("ognils", () => {
     //----------------------
     let server_key = "server-key";
     let ipfs_link = "ipfs game status link";
-    await program.methods.finishGame([user_pda_bump], server_key, ipfs_link, match_id)
+    await program.methods.finishGame(match_id, server_key, ipfs_link)
     .accounts({
         signer: server.publicKey, 
         server: server.publicKey, 
