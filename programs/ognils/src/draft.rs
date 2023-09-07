@@ -6,54 +6,6 @@
 
 
 
-
-
-
-/*
-
-    for every player `init_user_pda` must be called before starting the game 
-    to initialize all the player PDAs inside the queue (mmq) for the current match
-
-    `init_match_pda` needs to be called by the server or a higher authority
-    to initialize the match PDA account and initialize its first data on chain.
-
-    `deposit` can be called by server and `withdraw` can be called by the user 
-    to deposit into the match PDA and withdraw from the user PDA account.
-
-    `start_game` will be called by the server after initializing the PDAs 
-    to generate the game logic on chain thus all player public keys inside 
-    the queue (mmq) must be passed into this call. 
-
-    `finish_game` must be called by the server after the game has finished 
-    to pay the winners, thus it requires all the player PDAs to be passed 
-    in to the call, also there must be 6 PDAs inside the call since maximum
-    players inside the queue are 6 thus not all of them can be Some, it must 
-    be checked for its Some part before paying the winner.  
-
-
-    step 1) charge server and user wallet
-    step 2) init user pda must be called to create user pda on chain, this can be done by server to avoid double signing by user 
-    step 3) init match pda by server
-    step 4) user sends SOL to user pda 
-    step 5) server call deposit method to send SOL from user pda to match pda 
-    step 6) start game 
-    step 7) at any time user can call withdraw method which transfers SOL from user pda to user wallet 
-    step 8) finish game
-
-
-
-
-startGame ( matchID : int ,players : PublicKey[] , serverDeckEncoded : string , betValue : BigInt ) => Contract Stores chainDeck [ 528 byte ] on GamePDA 
-finishGame ( matchID , winners : PublicKey[] , serverDeckKey : string , ipfsLink : string ) 
-
-
-9WMwGcY6TcbSfy9XPpQymY3qNEsvEaYL3wivdwPG2fpp -> spltoken token
-
-
-*/
-
-
-
 use anchor_spl::{token::TokenAccount, token::Transfer};
 use anchor_lang::{prelude::*, solana_program::hash};
 
@@ -85,118 +37,10 @@ pub mod ognils {
         Ok(())
 
     }
-    
-    pub fn init_user_pda(ctx: Context<InitUserPda>) -> Result<()> {
-        
-        let user_pda = &ctx.accounts.user_pda;
-        let signer = ctx.accounts.signer.key;
-        let server = ctx.accounts.spltoken_server.owner.key();
-        
-        //// since there is no data inside user PDA account
-        //// there is no need to mutate anything in here,
-        //// chill and call next method :)
-        
-        // chill zone
-
-
-        if signer != &server{
-            return err!(ErrorCode::RestrictionError);
-        }
-
-        //...
-        
-        Ok(())
-
-    } 
-
-    pub fn withdraw(ctx: Context<WithdrawFromUserPda>, player_bump: u8, amount: u64) -> Result<()>{
-
-        let user_pda = &mut ctx.accounts.spltoken_user_pda;
-        let signer = &ctx.accounts.signer; //// only player can withdraw
-        let player = &ctx.accounts.spltoken_player;
-
-        if signer.key != &player.owner.key(){
-            return err!(ErrorCode::RestrictionError);
-        }
-
-        if user_pda.amount > 0 && user_pda.amount > amount{
-            transfer(
-                CpiContext::new(
-                    ctx.accounts.spltoken_token_program.to_account_info(),
-                    Transfer {
-                        from: ctx.accounts.spltoken_user_pda.to_account_info(),
-                        to: ctx.accounts.spltoken_player.to_account_info(),
-                        authority: ctx.accounts.spltoken_user_pda.to_account_info(),
-                    },
-                ),
-                amount,
-            )?;
-        } else{
-            return err!(ErrorCode::PlayerPdaBalanceIsZero);
-        }
-    
-        
-
-        Ok(())
-        
-    }
-
-    pub fn server_withdraw(ctx: Context<WithdrawFromMatchPda>, match_id: String, amount: u64) -> Result<()>{
-
-        let spltoken_match_pda = &ctx.accounts.spltoken_match_pda;
-        let match_pda = &ctx.accounts.match_pda;
-        let signer = &ctx.accounts.signer; //// only player can withdraw
-        
-        /* the owner of the spltoken_match_pda is the match_pda itself */
-        if match_pda.key() != spltoken_match_pda.owner.key(){
-            return err!(ErrorCode::RestrictionError);
-        }
-
-        if signer.key != &spltoken_match_pda.owner.key(){
-            return err!(ErrorCode::RestrictionError);
-        }
-
-        if spltoken_match_pda.amount > 0 && spltoken_match_pda.amount > amount{
-            transfer(
-                CpiContext::new(
-                    ctx.accounts.spltoken_token_program.to_account_info(),
-                    Transfer {
-                        from: spltoken_match_pda.to_account_info(),
-                        to: ctx.accounts.spltoken_server.to_account_info(),
-                        authority: ctx.accounts.match_pda.to_account_info(),
-                    },
-                ),
-                amount,
-            )?;
-        } else{
-            return err!(ErrorCode::ServerPdaBalanceIsZero);
-        }
-    
-
-        Ok(())
-        
-    }
 
     pub fn deposit(ctx: Context<DepositToMatchPda>, match_id: String, amount: u64) -> Result<()>{
 
-        let signer = ctx.accounts.signer.key();
-        let server = ctx.accounts.spltoken_match_pda.owner.key();
-        let player = ctx.accounts.spltoken_user_pda.owner.key();
-        let match_pda = ctx.accounts.match_pda.key();
-        let user_pda = ctx.accounts.user_pda.key();
-
-        /* the owner of the spltoken_match_pda is the match_pda itself */
-        if match_pda.key() != server{
-            return err!(ErrorCode::RestrictionError);
-        }
-
-        /* the owner of the spltoken_user_pda is the user_pda itself */
-        if user_pda.key() != player{
-            return err!(ErrorCode::RestrictionError);
-        }
-
-
-        if ctx.accounts.spltoken_user_pda.amount < amount {
+        if ctx.accounts.spltoken_user.amount < amount {
             return err!(ErrorCode::InsufficientFund);
         }
 
@@ -206,9 +50,9 @@ pub mod ognils {
             CpiContext::new(
                 ctx.accounts.spltoken_token_program.to_account_info(),
                 Transfer {
-                    from: ctx.accounts.spltoken_user_pda.to_account_info(),
-                    to: ctx.accounts.spltoken_match_pda.to_account_info(),
-                    authority: ctx.accounts.match_pda.to_account_info(),
+                    from: ctx.accounts.spltoken_user.to_account_info(),
+                    to: ctx.accounts.spltoken_match_server.to_account_info(),
+                    authority: ctx.accounts.signer.to_account_info(),
                 },
             ),
             amount,
@@ -235,7 +79,7 @@ pub mod ognils {
             return err!(ErrorCode::RestrictionError);
         }
 
-        if **server_pda.to_account_info().try_borrow_lamports()? < bet_value{
+        if server.amount < bet_value{
             return err!(ErrorCode::PdaCantHaveAmountLowerThanBetValue);
         }
 
@@ -292,35 +136,30 @@ pub mod ognils {
 
         let match_pda_data = &ctx.accounts.match_pda;
         let signer = ctx.accounts.signer.key;
-        let server = ctx.accounts.spltoken_match_pda.owner.key();
+        let server = ctx.accounts.spltoken_match_server.owner.key();
 
-        let server_account = ctx.accounts.spltoken_match_pda.to_account_info();
+        let server_account = ctx.accounts.spltoken_match_server.to_account_info();
 
 
-        if signer != &ctx.accounts.spltoken_match_pda.owner.key(){
-            return err!(ErrorCode::RestrictionError);
-        }
-
-        /* the owner of the spltoken_match_pda is the match_pda itself */
-        if ctx.accounts.match_pda.key() != ctx.accounts.spltoken_match_pda.owner.key(){
+        if signer != &ctx.accounts.spltoken_match_server.owner.key(){
             return err!(ErrorCode::RestrictionError);
         }
 
         // ----------------- players accounts ----------------------
         //// can't move out of a type if it's behind a shread reference
         //// if there was Some means we have winners
-        let first_player_account = &ctx.accounts.spltoken_first_user_pda;
-        let second_player_account = &ctx.accounts.spltoken_second_user_pda;
-        let third_player_account = &ctx.accounts.spltoken_third_user_pda;
-        let fourth_player_account = &ctx.accounts.spltoken_fourth_user_pda;
-        let fifth_player_account = &ctx.accounts.spltoken_fifth_user_pda;
-        let sixth_player_account = &ctx.accounts.spltoken_sixth_user_pda;
+        let first_player_account = &ctx.accounts.spltoken_first_user;
+        let second_player_account = &ctx.accounts.spltoken_second_user;
+        let third_player_account = &ctx.accounts.spltoken_third_user;
+        let fourth_player_account = &ctx.accounts.spltoken_fourth_user;
+        let fifth_player_account = &ctx.accounts.spltoken_fifth_user;
+        let sixth_player_account = &ctx.accounts.spltoken_sixth_user;
         let winners = vec![first_player_account, second_player_account, third_player_account,
                                                      fourth_player_account, fifth_player_account, sixth_player_account];
         
         {
             let mut winner_count = 0;
-            let current_match_pda_amout = ctx.accounts.spltoken_match_pda.amount;
+            let current_match_pda_amout = ctx.accounts.spltoken_match_server.amount;
             if current_match_pda_amout > 0{
 
                 let winner_flags = winners
@@ -357,9 +196,9 @@ pub mod ognils {
                             CpiContext::new(
                                 ctx.accounts.spltoken_token_program.to_account_info(),
                                 Transfer {
-                                    from: ctx.accounts.spltoken_match_pda.to_account_info(),
+                                    from: ctx.accounts.spltoken_match_server.to_account_info(),
                                     to: winner_account.clone(),
-                                    authority: ctx.accounts.match_pda.to_account_info(),
+                                    authority: ctx.accounts.signer.to_account_info(),
                                 },
                             ),
                             winner_reward,
@@ -371,7 +210,7 @@ pub mod ognils {
                                 ctx.accounts.spltoken_token_program.to_account_info(),
                                 Transfer {
                                     from: winner_account.clone(),
-                                    to: ctx.accounts.spltoken_match_pda.to_account_info(),
+                                    to: ctx.accounts.spltoken_match_server.to_account_info(),
                                     authority: winner_account,
                                 },
                             ),
@@ -394,7 +233,7 @@ pub mod ognils {
         emit!(MatchEvent{ 
             match_id, 
             players: match_pda_data.players, 
-            server: ctx.accounts.spltoken_match_pda.owner.key(), 
+            server: ctx.accounts.spltoken_match_server.owner.key(), 
             server_commit: match_pda_data.server_commit.clone(), 
             bet_value: match_pda_data.bet_value, 
             bump: match_pda_data.bump, 
@@ -424,46 +263,21 @@ pub struct MatchPda{
     pub chain_table: [u8; 528]
 }
 
-#[account]
-pub struct UserPda{
-    user_wallet: Pubkey,
-}
-
-
-#[derive(Accounts)]
-pub struct InitUserPda<'info>{
-   #[account(mut)]
-   pub signer: Signer<'info>, //// server
-   /// CHECK:
-   #[account(mut)]
-   pub spltoken_player: Account<'info, anchor_spl::token::TokenAccount>,
-   /// CHECK:
-   #[account(mut)]
-   pub spltoken_server: Account<'info, anchor_spl::token::TokenAccount>,
-   /// CHECK:
-   #[account(init, payer = signer, space = 100, seeds = [b"ognils", spltoken_player.owner.key().as_ref()], bump)]
-   pub user_pda: Account<'info, UserPda>,
-   pub system_program: Program<'info, System>,
-}
-
 
 #[derive(Accounts)]
 #[instruction(match_id: String)]
 pub struct DepositToMatchPda<'info>{
    #[account(mut)]
    pub signer: Signer<'info>, //// server
+  
    /// CHECK:
    #[account(mut)]
-   pub spltoken_match_pda: Account<'info, anchor_spl::token::TokenAccount>,
+   pub spltoken_match_server: Account<'info, anchor_spl::token::TokenAccount>,
    /// CHECK:
    #[account(mut)]
-   pub spltoken_user_pda: Account<'info, anchor_spl::token::TokenAccount>,
+   pub spltoken_user: Account<'info, anchor_spl::token::TokenAccount>,
 
-   /// CHECK:
-   #[account(init, payer = signer, space = 100, seeds = [b"ognils", spltoken_match_pda.owner.key().as_ref()], bump)]
-   pub user_pda: Account<'info, UserPda>,
-
-   #[account(init, payer = signer, space = 1024, seeds = [match_id.as_bytes(), spltoken_user_pda.owner.key().as_ref()], bump)]
+   #[account(init, payer = signer, space = 1024, seeds = [match_id.as_bytes(), spltoken_match_server.owner.key().as_ref()], bump)]
    pub match_pda: Box<Account<'info, MatchPda>>,
 
    pub system_program: Program<'info, System>,
@@ -501,80 +315,37 @@ pub struct StartGame<'info>{
 
 
 #[derive(Accounts)]
-#[instruction(player_bump: u8)]
-pub struct WithdrawFromUserPda<'info>{
-    #[account(mut)]  
-    pub signer: Signer<'info>, //// only player
-   /// CHECK:
-    #[account(mut, seeds = [b"ognils", spltoken_player.owner.key().as_ref()], bump = player_bump)]
-    pub user_pda: Account<'info, UserPda>,
-
-    /// CHECK:
-    #[account(mut)]
-    pub spltoken_user_pda: Account<'info, TokenAccount>,
-    /// CHECK:
-    #[account(mut)]
-    pub spltoken_player: Account<'info, TokenAccount>,
-    pub system_program: Program<'info, System>,
-    pub spltoken_token_program: AccountInfo<'info>,
-
-}
-
-
-#[derive(Accounts)]
-#[instruction(match_id: String)]
-pub struct WithdrawFromMatchPda<'info>{
-    #[account(mut)]  
-    pub signer: Signer<'info>, //// only server
-    #[account(mut, seeds = [match_id.as_bytes(), 
-                            spltoken_server.owner.key().as_ref()], 
-                            bump = match_pda.bump)]
-    pub match_pda: Box<Account<'info, MatchPda>>,
-    /// CHECK:
-    #[account(mut)]
-    pub spltoken_server: Account<'info, TokenAccount>,
-    
-    /// CHECK:
-    #[account(mut)]
-    pub spltoken_match_pda: Account<'info, TokenAccount>,
-
-    pub system_program: Program<'info, System>,
-    pub spltoken_token_program: AccountInfo<'info>,
-
-}
-
-#[derive(Accounts)]
 #[instruction(match_id: String)]
 pub struct FinishGame<'info>{
     #[account(mut)]  
     pub signer: Signer<'info>, //// only server
    /// CHECK:
    #[account(mut, seeds = [match_id.as_bytes(), 
-                            spltoken_match_pda.owner.key().as_ref()], 
+                        spltoken_match_server.owner.key().as_ref()], 
                             bump = match_pda.bump)]
     pub match_pda: Box<Account<'info, MatchPda>>,
-    // ------------------------------ JELLY PDAs ---------------------
+    // ------------------------------ spltoken PDAs ---------------------
     /// CHECK:
     #[account(mut)]
-    pub spltoken_match_pda: Account<'info, TokenAccount>,
+    pub spltoken_match_server: Account<'info, TokenAccount>,
     /// CHECK:
     #[account(mut)]
-    pub spltoken_first_user_pda: Option<Account<'info, TokenAccount>>,
+    pub spltoken_first_user: Option<Account<'info, TokenAccount>>,
     /// CHECK:
     #[account(mut)]
-    pub spltoken_second_user_pda: Option<Account<'info, TokenAccount>>,
+    pub spltoken_second_user: Option<Account<'info, TokenAccount>>,
     /// CHECK:
     #[account(mut)]
-    pub spltoken_third_user_pda: Option<Account<'info, TokenAccount>>,
+    pub spltoken_third_user: Option<Account<'info, TokenAccount>>,
     /// CHECK:
     #[account(mut)]
-    pub spltoken_fourth_user_pda: Option<Account<'info, TokenAccount>>,
+    pub spltoken_fourth_user: Option<Account<'info, TokenAccount>>,
     /// CHECK:
     #[account(mut)]
-    pub spltoken_fifth_user_pda: Option<Account<'info, TokenAccount>>,
+    pub spltoken_fifth_user: Option<Account<'info, TokenAccount>>,
     /// CHECK:
     #[account(mut)]
-    pub spltoken_sixth_user_pda: Option<Account<'info, TokenAccount>>,
+    pub spltoken_sixth_user: Option<Account<'info, TokenAccount>>,
     // ---------------------------------------------------------------
     pub system_program: Program<'info, System>,
     pub spltoken_token_program: AccountInfo<'info>,
@@ -615,4 +386,5 @@ pub struct MatchEvent{
     pub ipfs_link: String,
     pub chain_table: [u8; 528]
 }
+
 
