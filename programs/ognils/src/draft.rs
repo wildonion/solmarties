@@ -4,13 +4,6 @@
 
 
 
-
-
-
-
-
-
-
 use anchor_spl::{token::TokenAccount, token::{self, Mint}, token::{Transfer, Token}};
 use anchor_lang::{prelude::*, solana_program::hash};
 
@@ -432,6 +425,8 @@ pub struct FinishGame<'info>{
                         anyspl_match_server.key().as_ref()], 
                             bump = match_pda.bump)]
     pub match_pda: Box<Account<'info, MatchPda>>,
+    /// CHECK:
+    #[account(mut)]
     pub matchtokenpda: Box<Account<'info, TokenAccount>>,
     // ------------------------------ JELLY PDAs ---------------------
     /// CHECK:
@@ -496,5 +491,6 @@ pub struct MatchEvent{
     pub ipfs_link: String,
     pub chain_table: [u8; 528]
 }
+
 
 
