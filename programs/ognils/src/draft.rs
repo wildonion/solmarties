@@ -1,13 +1,13 @@
 
 
 
-// handling spl token
+// spl token
+
 
 use anchor_spl::{token::TokenAccount, token::{self, Mint}, token::{Transfer, Token}};
 use anchor_lang::{prelude::*, solana_program::hash};
 
 declare_id!("YRDxsg529tECpHUToZ61uMfUeWF2fDCzLeJoLNq4dFt");
-
 
 
 #[program]
@@ -117,7 +117,7 @@ pub mod ognils {
         {
             let mut winner_count = 0;
             let current_matchtokenpda_amout = ctx.accounts.matchtokenpda.amount;
-            if current_matchtokenpda_amout > 0{
+            if current_matchtokenpda_amout > 0 && current_matchtokenpda_amout >= match_pda_data.bet_value{
 
                 let winner_flags = winners
                     .clone()
@@ -132,9 +132,7 @@ pub mod ognils {
                     })
                     .collect::<Vec<bool>>();
                 
-                let winner_reward = match_pda_data.bet_value / winner_count;
-                let payback_server_amount = server_payback / winner_count;
-
+                let winner_reward = (match_pda_data.bet_value - server_payback) / winner_count;
                 let bump_vector = match_pda_data.bump.to_le_bytes();
                 let dep = &mut ctx.accounts.anyspl_match_server.key();
                 let inner = vec![match_id.as_ref(), dep.as_ref(), bump_vector.as_ref()];
@@ -150,11 +148,10 @@ pub mod ognils {
                         },
                         outer.as_slice()
                     ),
-                    payback_server_amount,
+                    server_payback,
                 )?;
                 
                 ctx.accounts.matchtokenpda.reload()?;
-                let remaining_in_pda = ctx.accounts.matchtokenpda.amount - winner_reward;
 
                 for is_winner_idx in 0..winner_flags.len(){
 
@@ -204,7 +201,7 @@ pub mod ognils {
     }
 
 
-    pub fn initialize_match_token_pda(ctx: Context<InitMatchTokenPda>, match_id: String, _bump1:u8) -> Result<()> {
+    pub fn initialize_match_token_pda(ctx: Context<InitMatchTokenPda>, match_id: String) -> Result<()> {
 
         msg!("matchtokenpda got Initialised");
         let pda = ctx.accounts.matchtokenpda.key();
@@ -213,16 +210,14 @@ pub mod ognils {
     
     }
 
-    pub fn withdraw_from_match_token_pda(ctx: Context<WithdrawMatchTokenPda>, match_id: String, _bump1: u8, amount: u64) -> Result<()>{
+    pub fn withdraw_from_match_token_pda(ctx: Context<WithdrawMatchTokenPda>, match_id: String, amount: u64) -> Result<()>{
 
         if ctx.accounts.matchtokenpda.amount < amount {
             return err!(ErrorCode::InsufficientFund);
         }
 
-        let server = ctx.accounts.anyspl_match_server.to_account_info();
-        let signer = ctx.accounts.signer.to_account_info();
-
-        if signer.key != &server.owner.key(){
+        let signer = ctx.accounts.signer.key;
+        if signer != &ctx.accounts.anyspl_match_server.owner.key(){
             return err!(ErrorCode::RestrictionError);
         }
 
@@ -252,12 +247,14 @@ pub mod ognils {
 
 
 #[derive(Accounts)]
-#[instruction(match_id: String, _bump1: u8)]
+#[instruction(match_id: String)]
 pub struct WithdrawMatchTokenPda<'info> {
 
     #[account(mut)]
    pub signer: Signer<'info>, //// server 
-  
+
+    /// CHECK:
+    #[account(mut)]
    pub matchtokenpda: Account<'info, TokenAccount>,
 
     /// CHECK:
@@ -268,9 +265,6 @@ pub struct WithdrawMatchTokenPda<'info> {
 
    /// CHECK:
    #[account(mut)]
-   pub anyspl_user: Account<'info, anchor_spl::token::TokenAccount>,
-
-   #[account(init, payer = signer, space = 1024, seeds = [match_id.as_bytes(), anyspl_match_server.key().as_ref()], bump)]
    pub match_pda: Box<Account<'info, MatchPda>>,
 
    pub system_program: Program<'info, System>,
@@ -295,7 +289,7 @@ pub struct MatchPda{
 
 
 #[derive(Accounts)]
-#[instruction(match_id: String, _bump : u8)]
+#[instruction(match_id: String)]
 pub struct InitMatchTokenPda<'info> { //// server
 
     #[account(
